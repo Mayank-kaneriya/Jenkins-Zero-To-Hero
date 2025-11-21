@@ -60,21 +60,24 @@ pipeline {
     }
 
     stage('Update Deployment File') {
-      steps {
-        withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
-          // Make sure commands run inside the cloned repo
-          dir('.') {
-            sh '''
-              git config user.email "mayankkaneriya7@gmail.com"
-              git config user.name "Mayank-kaneriya"
+  steps {
+    withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
+      // Checkout inside the container to make sure Git repo exists
+      checkout scm
+      sh '''
+        git config user.email "mayankkaneriya7@gmail.com"
+        git config user.name "Mayank-kaneriya"
 
-              sed -i "s/replaceImageTag/${BUILD_NUMBER}/g" java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
+        sed -i "s/replaceImageTag/${BUILD_NUMBER}/g" java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
 
-              git add java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
-              git commit -m "Update deployment image to version ${BUILD_NUMBER}"
-              git push https://${GITHUB_TOKEN}@github.com/Mayank-kaneriya/Jenkins-Zero-To-Hero.git HEAD:main
-            '''
-          }
+        git add java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
+        git commit -m "Update deployment image to version ${BUILD_NUMBER}"
+        git push https://${GITHUB_TOKEN}@github.com/Mayank-kaneriya/Jenkins-Zero-To-Hero.git HEAD:main
+      '''
+    }
+  }
+}
+
         }
       }
     }
