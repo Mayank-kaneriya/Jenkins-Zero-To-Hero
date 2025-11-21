@@ -6,11 +6,15 @@ pipeline {
     }
   }
 
+  environment {
+    SONAR_URL = "http://13.203.41.105:9000/"
+  }
+
   stages {
 
     stage('Checkout') {
       steps {
-        // Clone your repo so git operations will work in the container
+        // Clone your repo so git operations will work
         git branch: 'main', url: 'https://github.com/Mayank-kaneriya/Jenkins-Zero-To-Hero.git'
       }
     }
@@ -33,9 +37,6 @@ pipeline {
     }
 
     stage('Static Code Analysis') {
-      environment {
-        SONAR_URL = "http://13.203.41.105:9000/"
-      }
       steps {
         withCredentials([string(credentialsId: 'sonarqube', variable: 'SONAR_AUTH_TOKEN')]) {
           sh 'cd java-maven-sonar-argocd-helm-k8s/spring-boot-app && mvn sonar:sonar -Dsonar.login=$SONAR_AUTH_TOKEN -Dsonar.host.url=${SONAR_URL}'
@@ -60,22 +61,39 @@ pipeline {
     }
 
     stage('Update Deployment File') {
-      agent any   // Run on Jenkins host so Git repo exists
+      agent any  // Run this stage on the Jenkins host, not inside Docker container
       steps {
         withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
-          sh '''
-            git config user.email "mayankkaneriya7@gmail.com"
-            git config user.name "Mayank-kaneriya"
+          // Ensure we are in the correct directory with the Git repo
+          dir("${env.WORKSPACE}") {
+            sh '''
+              git config user.email "mayankkaneriya7@gmail.com"
+              git config user.name "Mayank-kaneriya"
 
-            sed -i "s/replaceImageTag/${BUILD_NUMBER}/g" java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
+              sed -i "s/replaceImageTag/${BUILD_NUMBER}/g" java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
 
-            git add java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
-            git commit -m "Update deployment image to version ${BUILD_NUMBER}"
-            git push https://${GITHUB_TOKEN}@github.com/Mayank-kaneriya/Jenkins-Zero-To-Hero.git HEAD:main
-          '''
+              git add java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
+              git commit -m "Update deployment image to version ${BUILD_NUMBER}"
+              git push https://${GITHUB_TOKEN}@github.com/Mayank-kaneriya/Jenkins-Zero-To-Hero.git HEAD:main
+            '''
+          }
         }
       }
     }
 
   }
+
+  post {
+    always {
+      echo 'Cleaning workspace...'
+      cleanWs()
+    }
+    success {
+      echo 'Pipeline completed successfully!'
+    }
+    failure {
+      echo 'Pipeline failed!'
+    }
+  }
+
 }
